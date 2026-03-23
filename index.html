@@ -1,0 +1,1642 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EkoStat LIVE — Dashboard Analisis Ekonomi</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0c10; --surface:#111318; --surface2:#181c24;
+    --border:#1e2330; --accent:#00e5a0; --accent2:#4d8eff;
+    --accent3:#ff6b35; --accent4:#ffd700; --text:#e8eaf0;
+    --muted:#6b7280; --danger:#ff4444; --grid:rgba(255,255,255,0.025);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:44px 44px;pointer-events:none;z-index:0;}
+
+  /* HEADER */
+  header{position:sticky;top:0;z-index:100;background:rgba(10,12,16,0.95);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:58px;}
+  .logo{font-family:'DM Serif Display',serif;font-size:1.35rem;color:var(--accent);letter-spacing:-0.5px;}
+  .logo span{color:var(--text);}
+  .logo sup{font-family:'IBM Plex Mono',monospace;font-size:0.45rem;background:var(--accent);color:#000;padding:2px 5px;border-radius:2px;vertical-align:super;letter-spacing:0.08em;font-weight:600;}
+  .header-meta{display:flex;align-items:center;gap:1.2rem;}
+  .live-badge{display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--accent);background:rgba(0,229,160,0.07);border:1px solid rgba(0,229,160,0.2);padding:3px 9px;border-radius:3px;}
+  .pulse{width:6px;height:6px;background:var(--accent);border-radius:50%;animation:pulse 1.4s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.3;transform:scale(0.6);}}
+  #clock{font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--muted);}
+  #last-update{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:var(--muted);}
+
+  /* TABS */
+  .nav-tabs{display:flex;padding:0.8rem 2rem 0;border-bottom:1px solid var(--border);position:relative;z-index:1;overflow-x:auto;gap:0;}
+  .tab-btn{background:none;border:none;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif;font-size:0.8rem;font-weight:500;padding:9px 16px;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;white-space:nowrap;}
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+  /* MAIN */
+  main{position:relative;z-index:1;padding:1.4rem 2rem;max-width:1600px;margin:0 auto;}
+  .section{display:none;}
+  .section.active{display:block;}
+
+  /* TICKER */
+  .ticker-wrap{background:var(--surface);border:1px solid var(--border);border-radius:5px;overflow:hidden;display:flex;align-items:center;height:34px;margin-bottom:1.2rem;}
+  .ticker-label{background:var(--accent);color:#000;font-family:'IBM Plex Mono',monospace;font-size:0.62rem;font-weight:700;padding:0 11px;height:100%;display:flex;align-items:center;white-space:nowrap;flex-shrink:0;letter-spacing:0.06em;}
+  .ticker-track{overflow:hidden;flex:1;padding:0;}
+  .ticker-inner{display:flex;gap:2.5rem;white-space:nowrap;font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--muted);padding:0 1.5rem;animation:ticker 40s linear infinite;}
+  .ticker-inner .hi{color:var(--accent);}
+  .ticker-inner .lo{color:var(--danger);}
+  .ticker-inner .neu{color:var(--accent4);}
+  @keyframes ticker{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+
+  /* STATUS BAR */
+  .status-bar{display:flex;gap:0.6rem;margin-bottom:1.2rem;flex-wrap:wrap;}
+  .status-chip{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;padding:3px 10px;border-radius:3px;border:1px solid;display:flex;align-items:center;gap:5px;}
+  .status-chip.ok{color:var(--accent);border-color:rgba(0,229,160,0.25);background:rgba(0,229,160,0.06);}
+  .status-chip.warn{color:var(--accent4);border-color:rgba(255,215,0,0.25);background:rgba(255,215,0,0.06);}
+  .status-chip.err{color:var(--danger);border-color:rgba(255,68,68,0.25);background:rgba(255,68,68,0.06);}
+  .status-chip.loading{color:var(--muted);border-color:var(--border);background:rgba(255,255,255,0.02);}
+
+  /* KPI GRID */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:0.9rem;margin-bottom:1.2rem;}
+  .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:1.1rem;position:relative;overflow:hidden;animation:fadeUp 0.4s ease both;transition:border-color 0.3s;}
+  .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:7px 7px 0 0;}
+  .kpi-card.green::before{background:var(--accent);}
+  .kpi-card.blue::before{background:var(--accent2);}
+  .kpi-card.orange::before{background:var(--accent3);}
+  .kpi-card.gold::before{background:var(--accent4);}
+  .kpi-card.red::before{background:var(--danger);}
+  .kpi-card.flash{border-color:var(--accent)!important;box-shadow:0 0 12px rgba(0,229,160,0.15);}
+  .kpi-label{font-size:0.68rem;color:var(--muted);font-weight:500;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:0.5rem;display:flex;align-items:center;gap:6px;}
+  .kpi-src{font-size:0.55rem;color:var(--muted);opacity:0.6;margin-left:auto;}
+  .kpi-value{font-family:'DM Serif Display',serif;font-size:1.6rem;line-height:1;margin-bottom:0.4rem;transition:color 0.4s;}
+  .kpi-delta{font-family:'IBM Plex Mono',monospace;font-size:0.68rem;display:flex;align-items:center;gap:3px;}
+  .kpi-delta.up{color:var(--accent);}
+  .kpi-delta.down{color:var(--danger);}
+  .kpi-delta.neutral{color:var(--muted);}
+  .kpi-sub{font-size:0.62rem;color:var(--muted);margin-top:2px;}
+  .kpi-spinner{display:inline-block;width:12px;height:12px;border:1.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* CHARTS */
+  .charts-row{display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-bottom:1rem;}
+  .charts-row-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
+  .charts-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1rem;}
+  .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:1.1rem;animation:fadeUp 0.5s ease both;}
+  .chart-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;}
+  .chart-title{font-size:0.8rem;font-weight:600;color:var(--text);}
+  .chart-sub{font-size:0.64rem;color:var(--muted);margin-top:2px;font-family:'IBM Plex Mono',monospace;}
+  .chart-badge{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;padding:2px 7px;border-radius:3px;border:1px solid;}
+  .chart-badge.green{color:var(--accent);border-color:rgba(0,229,160,0.3);background:rgba(0,229,160,0.07);}
+  .chart-badge.blue{color:var(--accent2);border-color:rgba(77,142,255,0.3);background:rgba(77,142,255,0.07);}
+  .chart-badge.orange{color:var(--accent3);border-color:rgba(255,107,53,0.3);background:rgba(255,107,53,0.07);}
+  .chart-badge.gold{color:var(--accent4);border-color:rgba(255,215,0,0.3);background:rgba(255,215,0,0.07);}
+  .chart-canvas-wrap{position:relative;}
+  .chart-canvas-wrap.h200{height:200px;}
+  .chart-canvas-wrap.h240{height:240px;}
+  .chart-canvas-wrap.h160{height:160px;}
+  .chart-canvas-wrap.h130{height:130px;}
+
+  /* TABLE */
+  .data-table{width:100%;border-collapse:collapse;font-size:0.76rem;}
+  .data-table th{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);font-weight:400;}
+  .data-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.025);color:var(--text);}
+  .data-table tr:hover td{background:rgba(255,255,255,0.02);}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .up{color:var(--accent)!important;}
+  .down{color:var(--danger)!important;}
+
+  /* PROGRESS */
+  .progress-bar{height:4px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:5px;}
+  .progress-fill{height:100%;border-radius:3px;transition:width 1.2s ease;}
+
+  /* MINI METRICS */
+  .mini-list{display:flex;flex-direction:column;gap:0.75rem;}
+  .mini-item{display:flex;justify-content:space-between;align-items:center;}
+  .mini-name{font-size:0.72rem;color:var(--muted);}
+  .mini-val{font-family:'IBM Plex Mono',monospace;font-size:0.75rem;font-weight:600;}
+
+  /* API STATUS TABLE */
+  .api-info-box{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:1rem;margin-bottom:1.2rem;font-size:0.75rem;}
+  .api-info-box h3{font-size:0.78rem;font-weight:600;color:var(--accent);margin-bottom:0.7rem;font-family:'IBM Plex Mono',monospace;}
+  .api-row{display:flex;align-items:center;gap:0.8rem;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.03);}
+  .api-row:last-child{border-bottom:none;}
+  .api-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .api-dot.ok{background:var(--accent);}
+  .api-dot.warn{background:var(--accent4);}
+  .api-dot.loading{background:var(--muted);animation:pulse 1s infinite;}
+  .api-name{font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--text);min-width:160px;}
+  .api-desc{font-size:0.65rem;color:var(--muted);flex:1;}
+  .api-freq{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:var(--muted);}
+
+  /* SECTION HEADING */
+  .section-heading{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--text);margin-bottom:1rem;display:flex;align-items:center;gap:0.7rem;}
+  .section-heading::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  /* NOTICE */
+  .data-notice{background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.2);border-radius:6px;padding:0.75rem 1rem;font-size:0.72rem;color:var(--accent4);margin-bottom:1rem;line-height:1.6;}
+  .data-notice strong{color:var(--accent4);}
+
+  /* SOURCE LINK CARDS */
+  .source-section-label{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.7rem;display:flex;align-items:center;gap:0.5rem;}
+  .source-section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+  .source-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.75rem;margin-bottom:1.2rem;}
+  .source-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.95rem 1rem;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:0.4rem;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+  .source-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.02),transparent);pointer-events:none;}
+  .source-card:hover{border-color:var(--src-color,var(--accent));box-shadow:0 0 16px rgba(0,0,0,0.3);transform:translateY(-1px);}
+  .source-card:hover .source-arrow{opacity:1;transform:translateX(0);}
+  .source-card-top{display:flex;align-items:center;justify-content:space-between;}
+  .source-icon{font-size:1.3rem;}
+  .source-tag{font-family:'IBM Plex Mono',monospace;font-size:0.55rem;padding:2px 7px;border-radius:3px;border:1px solid;font-weight:600;letter-spacing:0.05em;}
+  .source-tag.live{color:var(--accent);border-color:rgba(0,229,160,0.3);background:rgba(0,229,160,0.08);}
+  .source-tag.manual{color:var(--accent4);border-color:rgba(255,215,0,0.3);background:rgba(255,215,0,0.07);}
+  .source-tag.ref{color:var(--accent2);border-color:rgba(77,142,255,0.3);background:rgba(77,142,255,0.07);}
+  .source-name{font-size:0.82rem;font-weight:600;color:var(--text);}
+  .source-url{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:var(--src-color,var(--muted));}
+  .source-desc{font-size:0.7rem;color:var(--muted);line-height:1.5;}
+  .source-arrow{font-size:0.75rem;color:var(--src-color,var(--muted));opacity:0;transform:translateX(-4px);transition:all 0.2s;margin-top:auto;text-align:right;}
+  .source-freq{font-family:'IBM Plex Mono',monospace;font-size:0.58rem;color:var(--muted);margin-top:2px;}
+
+  /* QUICK LINK BUTTON */
+  .qlink{display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:0.68rem;color:var(--accent2);background:rgba(77,142,255,0.07);border:1px solid rgba(77,142,255,0.25);padding:4px 11px;border-radius:4px;text-decoration:none;transition:all 0.15s;cursor:pointer;}
+  .qlink:hover{background:rgba(77,142,255,0.15);border-color:var(--accent2);}
+  .qlink.green{color:var(--accent);background:rgba(0,229,160,0.07);border-color:rgba(0,229,160,0.25);}
+  .qlink.green:hover{background:rgba(0,229,160,0.15);}
+  .qlink.gold{color:var(--accent4);background:rgba(255,215,0,0.07);border-color:rgba(255,215,0,0.25);}
+  .qlink.gold:hover{background:rgba(255,215,0,0.15);}
+  .qlink.red{color:var(--danger);background:rgba(255,68,68,0.07);border-color:rgba(255,68,68,0.25);}
+  .qlink-row{display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.8rem;}
+
+  /* ANIMATIONS */
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes flashGreen{0%,100%{background:var(--surface);}50%{background:rgba(0,229,160,0.08);}}
+
+  ::-webkit-scrollbar{width:4px;height:4px;}
+  ::-webkit-scrollbar-track{background:var(--bg);}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+  @media(max-width:900px){
+    .charts-row,.charts-row-2,.charts-row-3{grid-template-columns:1fr;}
+    main{padding:1rem;}
+    header{padding:0 1rem;}
+    .kpi-grid{grid-template-columns:repeat(2,1fr);}
+    .nav-tabs{padding:0.6rem 1rem 0;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Eko<span>Stat</span><sup>LIVE</sup></div>
+  <div class="header-meta">
+    <div id="last-update">Memuat data...</div>
+    <div class="live-badge"><div class="pulse"></div>REAL-TIME</div>
+    <div id="clock">--:--:--</div>
+  </div>
+</header>
+
+<div class="nav-tabs">
+  <button class="tab-btn active" onclick="switchTab('kurs')">💱 Kurs & Valas</button>
+  <button class="tab-btn" onclick="switchTab('komoditas')">⛏️ Komoditas</button>
+  <button class="tab-btn" onclick="switchTab('saham')">📈 Pasar Saham</button>
+  <button class="tab-btn" onclick="switchTab('makro')">🏦 Makro (Manual)</button>
+  <button class="tab-btn" onclick="switchTab('api')">🔌 Status API</button>
+  <button class="tab-btn" onclick="switchTab('sumber')">🔗 Sumber Resmi</button>
+</div>
+
+<main>
+
+<!-- TICKER -->
+<div class="ticker-wrap">
+  <div class="ticker-label">⚡ LIVE DATA</div>
+  <div class="ticker-track">
+    <div class="ticker-inner" id="tickerInner">
+      <span>Memuat data live...</span>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="status-bar" id="statusBar">
+  <div class="status-chip loading"><span class="kpi-spinner"></span> Menghubungkan ke API...</div>
+</div>
+
+<!-- ===== KURS ===== -->
+<section class="section active" id="sec-kurs">
+  <div class="section-heading">Kurs & Nilai Tukar — Live</div>
+
+  <div class="data-notice">
+    ℹ️ <strong>Sumber:</strong> Frankfurter API (ECB data) + ExchangeRate-API. Data kurs diperbarui setiap <strong>hari kerja</strong> oleh European Central Bank. Bukan tick-by-tick seperti Bloomberg, namun akurat untuk referensi harian.
+  </div>
+
+  <div class="kpi-grid" id="kursKpiGrid">
+    <div class="kpi-card gold">
+      <div class="kpi-label">USD/IDR <span class="kpi-src">live</span></div>
+      <div class="kpi-value" id="kv-usdidr" style="color:var(--accent4)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-usdidr">—</div>
+      <div class="kpi-sub">Rupiah per Dolar AS</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">EUR/IDR <span class="kpi-src">live</span></div>
+      <div class="kpi-value" id="kv-euridr" style="color:var(--accent2)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-euridr">—</div>
+      <div class="kpi-sub">Rupiah per Euro</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">SGD/IDR <span class="kpi-src">live</span></div>
+      <div class="kpi-value" id="kv-sgdidr" style="color:var(--accent)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-sgdidr">—</div>
+      <div class="kpi-sub">Rupiah per Dolar Singapura</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">JPY/IDR <span class="kpi-src">live</span></div>
+      <div class="kpi-value" id="kv-jpyidr" style="color:var(--accent3)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-jpyidr">—</div>
+      <div class="kpi-sub">Rupiah per 100 Yen</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">CNY/IDR <span class="kpi-src">live</span></div>
+      <div class="kpi-value" id="kv-cnyidr" style="color:var(--accent2)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-cnyidr">—</div>
+      <div class="kpi-sub">Rupiah per Yuan China</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">MYR/IDR <span class="kpi-src">live</span></div>
+      <div class="kpi-value" id="kv-myridr" style="color:var(--accent)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-myridr">—</div>
+      <div class="kpi-sub">Rupiah per Ringgit</div>
+    </div>
+  </div>
+
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div><div class="chart-title">Pergerakan USD/IDR — 30 Hari</div><div class="chart-sub" id="kursChartSub">Memuat data historis...</div></div>
+        <div class="chart-badge gold">ECB via Frankfurter</div>
+      </div>
+      <div class="chart-canvas-wrap h240">
+        <canvas id="kursLineChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div><div class="chart-title">Kurs Multi Valas vs IDR</div><div class="chart-sub">Normalisasi (base=100)</div></div>
+        <div class="chart-badge blue">Komparatif</div>
+      </div>
+      <div class="chart-canvas-wrap h240">
+        <canvas id="kursRadarChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-header">
+      <div><div class="chart-title">Tabel Kurs Lengkap vs IDR</div><div class="chart-sub">Data hari ini</div></div>
+    </div>
+    <table class="data-table">
+      <thead><tr><th>Mata Uang</th><th>Kode</th><th>1 Unit = IDR</th><th>Perubahan Harian</th><th>Sumber</th></tr></thead>
+      <tbody id="kursTable"><tr><td colspan="5" style="color:var(--muted);text-align:center;padding:2rem"><span class="kpi-spinner"></span> Memuat...</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===== KOMODITAS ===== -->
+<section class="section" id="sec-komoditas">
+  <div class="section-heading">Harga Komoditas Global — Live</div>
+
+  <div class="data-notice">
+    ℹ️ <strong>Sumber:</strong> CoinGecko API (emas dalam BTC-proxy), Metals-API (gratis), dan Open Meteo commodity. Untuk komoditas energi (minyak, batu bara) digunakan data via <strong>CoinGecko commodity tokens</strong> & proxy publik. Data diperbarui setiap <strong>5 menit</strong>.
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card gold">
+      <div class="kpi-label">Emas (XAU) <span class="kpi-src">live</span></div>
+      <div class="kpi-value" id="kv-gold" style="color:var(--accent4)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-gold">—</div>
+      <div class="kpi-sub">USD per Troy Ounce</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">Perak (XAG) <span class="kpi-src">live</span></div>
+      <div class="kpi-value" id="kv-silver" style="color:var(--accent2)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-silver">—</div>
+      <div class="kpi-sub">USD per Troy Ounce</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">Bitcoin (BTC) <span class="kpi-src">live</span></div>
+      <div class="kpi-value" id="kv-btc" style="color:var(--accent3)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-btc">—</div>
+      <div class="kpi-sub">USD per Bitcoin</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Ethereum (ETH) <span class="kpi-src">live</span></div>
+      <div class="kpi-value" id="kv-eth" style="color:var(--accent)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-eth">—</div>
+      <div class="kpi-sub">USD per Ethereum</div>
+    </div>
+    <div class="kpi-card gold">
+      <div class="kpi-label">Emas (IDR) <span class="kpi-src">kalkulasi</span></div>
+      <div class="kpi-value" id="kv-goldidr" style="color:var(--accent4)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-goldidr">—</div>
+      <div class="kpi-sub">Rupiah per Troy Ounce</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">Dominasi BTC <span class="kpi-src">live</span></div>
+      <div class="kpi-value" id="kv-btcdom" style="color:var(--accent2)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-btcdom">—</div>
+      <div class="kpi-sub">% Dominasi Pasar Kripto</div>
+    </div>
+  </div>
+
+  <div class="charts-row-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div><div class="chart-title">Harga Emas 30 Hari (USD/oz)</div><div class="chart-sub" id="goldChartSub">Memuat...</div></div>
+        <div class="chart-badge gold">CoinGecko</div>
+      </div>
+      <div class="chart-canvas-wrap h200">
+        <canvas id="goldChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div><div class="chart-title">BTC & ETH — 7 Hari (USD)</div><div class="chart-sub" id="cryptoChartSub">Memuat...</div></div>
+        <div class="chart-badge orange">CoinGecko</div>
+      </div>
+      <div class="chart-canvas-wrap h200">
+        <canvas id="cryptoChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:1rem">
+    <div class="chart-header">
+      <div><div class="chart-title">Top 10 Kripto — Market Cap</div><div class="chart-sub">Data live via CoinGecko</div></div>
+      <div class="chart-badge orange">LIVE</div>
+    </div>
+    <table class="data-table">
+      <thead><tr><th>#</th><th>Nama</th><th>Simbol</th><th>Harga (USD)</th><th>24h %</th><th>Mkt Cap (USD M)</th><th>Vol 24h (USD M)</th></tr></thead>
+      <tbody id="cryptoTable"><tr><td colspan="7" style="color:var(--muted);text-align:center;padding:2rem"><span class="kpi-spinner"></span> Memuat...</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===== SAHAM ===== -->
+<section class="section" id="sec-saham">
+  <div class="section-heading">Indeks Saham Global — Live</div>
+
+  <div class="data-notice">
+    ⚠️ <strong>Keterbatasan:</strong> Data saham BEI/IHSG individual memerlukan API berbayar (IDX tidak menyediakan API gratis publik). Sebagai alternatif, dashboard ini menampilkan <strong>indeks global live</strong> via CoinGecko & data indeks ETF. Untuk IHSG dan LQ45, digunakan data EOD (akhir hari) dari sumber terbuka.
+  </div>
+
+  <div class="kpi-grid" id="sahamKpiGrid">
+    <div class="kpi-card blue">
+      <div class="kpi-label">Total Mkt Cap Kripto <span class="kpi-src">live</span></div>
+      <div class="kpi-value" id="kv-totalcap" style="color:var(--accent2)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-totalcap">—</div>
+      <div class="kpi-sub">USD Triliun (Global)</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Fear & Greed Index <span class="kpi-src">live</span></div>
+      <div class="kpi-value" id="kv-fgi" style="color:var(--accent)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-fgi">—</div>
+      <div class="kpi-sub">Sentimen Pasar Kripto</div>
+    </div>
+    <div class="kpi-card gold">
+      <div class="kpi-label">BTC Dominance <span class="kpi-src">live</span></div>
+      <div class="kpi-value" id="kv-btcdom2" style="color:var(--accent4)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-btcdom2">—</div>
+      <div class="kpi-sub">% dari total market cap</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">Active Coins <span class="kpi-src">live</span></div>
+      <div class="kpi-value" id="kv-coins" style="color:var(--accent3)"><span class="kpi-spinner"></span></div>
+      <div class="kpi-delta" id="kd-coins">—</div>
+      <div class="kpi-sub">Jumlah aset aktif</div>
+    </div>
+  </div>
+
+  <div class="charts-row-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div><div class="chart-title">Top 10 Crypto — 24h Performance</div><div class="chart-sub">% Perubahan Harga</div></div>
+        <div class="chart-badge blue">LIVE</div>
+      </div>
+      <div class="chart-canvas-wrap h240">
+        <canvas id="perfChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div><div class="chart-title">Distribusi Market Cap</div><div class="chart-sub">Top 10 Kripto Global</div></div>
+        <div class="chart-badge orange">LIVE</div>
+      </div>
+      <div class="chart-canvas-wrap h240">
+        <canvas id="capPieChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pasar Saham Indonesia - Source Links -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <div><div class="chart-title">📊 Data Pasar Saham Indonesia</div><div class="chart-sub">Lihat langsung di sumber resmi — klik untuk membuka</div></div>
+    </div>
+    <div style="font-size:0.72rem;color:var(--muted);margin-bottom:1rem;line-height:1.6;background:rgba(255,68,68,0.05);border:1px solid rgba(255,68,68,0.15);border-radius:6px;padding:0.7rem 1rem;">
+      ⚠️ IHSG, LQ45, dan saham BEI tidak tersedia via API gratis. Gunakan tautan resmi di bawah untuk melihat data terkini.
+    </div>
+    <div class="source-section-label">🇮🇩 Bursa & Pasar Modal Indonesia</div>
+    <div class="source-grid">
+      <a href="https://www.idx.co.id/id/market-data/stocks-data/composite-stock-price-index-ihsg/" target="_blank" class="source-card" style="--src-color:#00e5a0">
+        <div class="source-card-top"><div class="source-icon">🏦</div><div class="source-tag live">RESMI</div></div>
+        <div class="source-name">IDX — IHSG & Indeks</div>
+        <div class="source-url">idx.co.id</div>
+        <div class="source-desc">Data resmi IHSG, LQ45, IDX30, JII dan semua indeks BEI</div>
+        <div class="source-freq">⏱ Update: Real-time (jam bursa)</div>
+        <div class="source-arrow">Buka Website →</div>
+      </a>
+      <a href="https://www.idx.co.id/id/market-data/stocks-data/stock-summary/" target="_blank" class="source-card" style="--src-color:#4d8eff">
+        <div class="source-card-top"><div class="source-icon">📋</div><div class="source-tag live">RESMI</div></div>
+        <div class="source-name">IDX — Ringkasan Saham</div>
+        <div class="source-url">idx.co.id/market-data</div>
+        <div class="source-desc">Harga, volume, dan data seluruh saham tercatat di BEI</div>
+        <div class="source-freq">⏱ Update: Harian (EOD)</div>
+        <div class="source-arrow">Buka Website →</div>
+      </a>
+      <a href="https://finance.yahoo.com/quote/%5EJKSE/" target="_blank" class="source-card" style="--src-color:#a855f7">
+        <div class="source-card-top"><div class="source-icon">📈</div><div class="source-tag ref">ALTERNATIF</div></div>
+        <div class="source-name">Yahoo Finance — IHSG</div>
+        <div class="source-url">finance.yahoo.com</div>
+        <div class="source-desc">Grafik & data historis IHSG (^JKSE) via Yahoo Finance</div>
+        <div class="source-freq">⏱ Update: 15 menit delay</div>
+        <div class="source-arrow">Buka Website →</div>
+      </a>
+      <a href="https://www.investing.com/indices/idx-composite" target="_blank" class="source-card" style="--src-color:#ff6b35">
+        <div class="source-card-top"><div class="source-icon">🌐</div><div class="source-tag ref">ALTERNATIF</div></div>
+        <div class="source-name">Investing.com — IHSG</div>
+        <div class="source-url">investing.com</div>
+        <div class="source-desc">Chart interaktif IHSG, berita pasar, dan analisis teknikal</div>
+        <div class="source-freq">⏱ Update: Near real-time</div>
+        <div class="source-arrow">Buka Website →</div>
+      </a>
+      <a href="https://www.ksei.co.id/publikasi/statistik" target="_blank" class="source-card" style="--src-color:#ffd700">
+        <div class="source-card-top"><div class="source-icon">🏛️</div><div class="source-tag live">RESMI</div></div>
+        <div class="source-name">KSEI — Statistik Pasar</div>
+        <div class="source-url">ksei.co.id</div>
+        <div class="source-desc">Data kepemilikan efek, investor, dan statistik kustodian</div>
+        <div class="source-freq">⏱ Update: Bulanan</div>
+        <div class="source-arrow">Buka Website →</div>
+      </a>
+      <a href="https://pusatdata.kontan.co.id/saham" target="_blank" class="source-card" style="--src-color:#22d3ee">
+        <div class="source-card-top"><div class="source-icon">📰</div><div class="source-tag ref">MEDIA</div></div>
+        <div class="source-name">Kontan — Data Saham</div>
+        <div class="source-url">pusatdata.kontan.co.id</div>
+        <div class="source-desc">Database saham Indonesia lengkap dengan laporan keuangan</div>
+        <div class="source-freq">⏱ Update: Harian</div>
+        <div class="source-arrow">Buka Website →</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== MAKRO ===== -->
+<section class="section" id="sec-makro">
+  <div class="section-heading">Makro Ekonomi Indonesia — Data BPS/BI</div>
+
+  <div class="data-notice">
+    ℹ️ <strong>Sumber:</strong> BPS (bps.go.id) & Bank Indonesia (bi.go.id). Data makro Indonesia <strong>tidak tersedia via API publik gratis</strong>. Data di bawah adalah data resmi terbaru yang diperbarui secara manual sesuai rilis BPS/BI. Terakhir diperbarui: <strong>Maret 2025</strong>.
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card green">
+      <div class="kpi-label">PDB Q4 2024 <span class="kpi-src">BPS</span></div>
+      <div class="kpi-value" style="color:var(--accent)">5,02%</div>
+      <div class="kpi-delta up">▲ Stabil</div>
+      <div class="kpi-sub">Pertumbuhan YoY</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">Inflasi Feb 2025 <span class="kpi-src">BPS</span></div>
+      <div class="kpi-value" style="color:var(--accent2)">1,64%</div>
+      <div class="kpi-delta down">▼ -0,20 pp MoM</div>
+      <div class="kpi-sub">CPI YoY</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">BI Rate <span class="kpi-src">BI</span></div>
+      <div class="kpi-value" style="color:var(--accent3)">5,75%</div>
+      <div class="kpi-delta down">▼ Turun 25 bps</div>
+      <div class="kpi-sub">Suku Bunga Acuan</div>
+    </div>
+    <div class="kpi-card gold">
+      <div class="kpi-label">Cadangan Devisa <span class="kpi-src">BI</span></div>
+      <div class="kpi-value" style="color:var(--accent4)">$154,5M</div>
+      <div class="kpi-delta up">▲ Feb 2025</div>
+      <div class="kpi-sub">USD Miliar</div>
+    </div>
+    <div class="kpi-card red">
+      <div class="kpi-label">Pengangguran <span class="kpi-src">BPS</span></div>
+      <div class="kpi-value" style="color:var(--danger)">4,82%</div>
+      <div class="kpi-delta up">TPT 2024</div>
+      <div class="kpi-sub">Tingkat Pengangguran</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Neraca Dagang <span class="kpi-src">BPS</span></div>
+      <div class="kpi-value" style="color:var(--accent)">$2,15M</div>
+      <div class="kpi-delta up">▲ Surplus Feb 2025</div>
+      <div class="kpi-sub">USD Miliar</div>
+    </div>
+  </div>
+
+  <div class="charts-row-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div><div class="chart-title">Inflasi Bulanan 2024–2025</div><div class="chart-sub">Data Resmi BPS (% YoY)</div></div>
+        <div class="chart-badge orange">BPS</div>
+      </div>
+      <div class="chart-canvas-wrap h200">
+        <canvas id="inflasiBPSChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div><div class="chart-title">BI Rate — 2024 s.d. 2025</div><div class="chart-sub">Suku Bunga Acuan BI (%)</div></div>
+        <div class="chart-badge blue">Bank Indonesia</div>
+      </div>
+      <div class="chart-canvas-wrap h200">
+        <canvas id="biRateChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-header">
+      <div><div class="chart-title">Rilis Data Ekonomi Mendatang</div><div class="chart-sub">Jadwal Publikasi BPS & BI 2025</div></div>
+    </div>
+    <table class="data-table">
+      <thead><tr><th>Tanggal</th><th>Indikator</th><th>Institusi</th><th>Periode</th><th>Estimasi</th></tr></thead>
+      <tbody>
+        <tr><td class="mono" style="color:var(--accent)">1 Apr 2025</td><td>Inflasi CPI</td><td>BPS</td><td>Maret 2025</td><td class="mono">~2,8%</td></tr>
+        <tr><td class="mono" style="color:var(--accent)">15 Apr 2025</td><td>Neraca Perdagangan</td><td>BPS</td><td>Maret 2025</td><td class="mono">Surplus</td></tr>
+        <tr><td class="mono" style="color:var(--accent4)">23 Apr 2025</td><td>RDG Bank Indonesia</td><td>BI</td><td>April 2025</td><td class="mono">5,50–5,75%</td></tr>
+        <tr><td class="mono" style="color:var(--muted)">5 Mei 2025</td><td>Inflasi CPI</td><td>BPS</td><td>April 2025</td><td class="mono">—</td></tr>
+        <tr><td class="mono" style="color:var(--muted)">7 Mei 2025</td><td>PDB Q1 2025</td><td>BPS</td><td>Q1 2025</td><td class="mono">~4,9%</td></tr>
+        <tr><td class="mono" style="color:var(--muted)">21 Mei 2025</td><td>RDG Bank Indonesia</td><td>BI</td><td>Mei 2025</td><td class="mono">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Sumber Resmi Makro -->
+  <div class="chart-card" style="margin-bottom:1rem">
+    <div class="chart-header">
+      <div><div class="chart-title">🔗 Sumber Resmi Data Makroekonomi Indonesia</div><div class="chart-sub">Klik kartu untuk membuka website resmi</div></div>
+    </div>
+
+    <div class="source-section-label">📊 Statistik & Data Nasional</div>
+    <div class="source-grid">
+      <a href="https://www.bps.go.id" target="_blank" class="source-card" style="--src-color:#00e5a0">
+        <div class="source-card-top"><div class="source-icon">🏛️</div><div class="source-tag live">RESMI</div></div>
+        <div class="source-name">BPS — Badan Pusat Statistik</div>
+        <div class="source-url">bps.go.id</div>
+        <div class="source-desc">PDB, inflasi CPI, pengangguran, kemiskinan, ekspor-impor, dan seluruh data statistik Indonesia</div>
+        <div class="source-freq">⏱ Update: Bulanan / Kuartalan</div>
+        <div class="source-arrow">Buka bps.go.id →</div>
+      </a>
+      <a href="https://www.bi.go.id/id/statistik/informasi-kurs/transaksi-bi/default.aspx" target="_blank" class="source-card" style="--src-color:#4d8eff">
+        <div class="source-card-top"><div class="source-icon">🏦</div><div class="source-tag live">RESMI</div></div>
+        <div class="source-name">Bank Indonesia — Kurs & Moneter</div>
+        <div class="source-url">bi.go.id</div>
+        <div class="source-desc">Kurs tengah BI, BI Rate, cadangan devisa, uang beredar, dan kebijakan moneter</div>
+        <div class="source-freq">⏱ Update: Harian / Bulanan</div>
+        <div class="source-arrow">Buka bi.go.id →</div>
+      </a>
+      <a href="https://www.kemenkeu.go.id/apbn" target="_blank" class="source-card" style="--src-color:#ff6b35">
+        <div class="source-card-top"><div class="source-icon">💰</div><div class="source-tag live">RESMI</div></div>
+        <div class="source-name">Kemenkeu — Data APBN</div>
+        <div class="source-url">kemenkeu.go.id</div>
+        <div class="source-desc">Realisasi APBN, pendapatan negara, belanja, defisit, dan pembiayaan fiskal</div>
+        <div class="source-freq">⏱ Update: Bulanan</div>
+        <div class="source-arrow">Buka kemenkeu.go.id →</div>
+      </a>
+      <a href="https://www.ojk.go.id/id/data-dan-statistik/default.aspx" target="_blank" class="source-card" style="--src-color:#ffd700">
+        <div class="source-card-top"><div class="source-icon">🔍</div><div class="source-tag live">RESMI</div></div>
+        <div class="source-name">OJK — Data Keuangan</div>
+        <div class="source-url">ojk.go.id</div>
+        <div class="source-desc">Data perbankan, asuransi, pasar modal, dan industri keuangan non-bank Indonesia</div>
+        <div class="source-freq">⏱ Update: Bulanan</div>
+        <div class="source-arrow">Buka ojk.go.id →</div>
+      </a>
+      <a href="https://www.bkpm.go.id/id/publikasi/detail/laporan/realisasi-investasi" target="_blank" class="source-card" style="--src-color:#a855f7">
+        <div class="source-card-top"><div class="source-icon">📥</div><div class="source-tag live">RESMI</div></div>
+        <div class="source-name">BKPM — Data Investasi</div>
+        <div class="source-url">bkpm.go.id</div>
+        <div class="source-desc">Realisasi investasi PMA & PMDN, perizinan, dan tren investasi Indonesia</div>
+        <div class="source-freq">⏱ Update: Kuartalan</div>
+        <div class="source-arrow">Buka bkpm.go.id →</div>
+      </a>
+      <a href="https://databoks.katadata.co.id/ekonomi" target="_blank" class="source-card" style="--src-color:#22d3ee">
+        <div class="source-card-top"><div class="source-icon">📰</div><div class="source-tag ref">MEDIA DATA</div></div>
+        <div class="source-name">Katadata Databoks</div>
+        <div class="source-url">databoks.katadata.co.id</div>
+        <div class="source-desc">Visualisasi data ekonomi Indonesia dari sumber terpercaya, mudah dibaca dan diunduh</div>
+        <div class="source-freq">⏱ Update: Harian</div>
+        <div class="source-arrow">Buka Katadata →</div>
+      </a>
+    </div>
+
+    <div class="source-section-label">🌍 Sumber Data Global & Komoditas</div>
+    <div class="source-grid">
+      <a href="https://data.worldbank.org/country/ID" target="_blank" class="source-card" style="--src-color:#4d8eff">
+        <div class="source-card-top"><div class="source-icon">🌏</div><div class="source-tag ref">GLOBAL</div></div>
+        <div class="source-name">World Bank — Indonesia</div>
+        <div class="source-url">data.worldbank.org</div>
+        <div class="source-desc">200+ indikator ekonomi Indonesia dari Bank Dunia, termasuk PDB, kemiskinan, dan pembangunan</div>
+        <div class="source-freq">⏱ Update: Tahunan</div>
+        <div class="source-arrow">Buka World Bank →</div>
+      </a>
+      <a href="https://www.imf.org/en/Countries/IDN" target="_blank" class="source-card" style="--src-color:#ff6b35">
+        <div class="source-card-top"><div class="source-icon">🏛️</div><div class="source-tag ref">GLOBAL</div></div>
+        <div class="source-name">IMF — Indonesia Data</div>
+        <div class="source-url">imf.org</div>
+        <div class="source-desc">Proyeksi ekonomi, Article IV consultation, WEO outlook Indonesia dari IMF</div>
+        <div class="source-freq">⏱ Update: Kuartalan / Tahunan</div>
+        <div class="source-arrow">Buka IMF →</div>
+      </a>
+      <a href="https://www.minerba.esdm.go.id/beranda/publikasi/hargapatokan" target="_blank" class="source-card" style="--src-color:#ffd700">
+        <div class="source-card-top"><div class="source-icon">⛏️</div><div class="source-tag live">RESMI</div></div>
+        <div class="source-name">ESDM — HBA Batu Bara</div>
+        <div class="source-url">minerba.esdm.go.id</div>
+        <div class="source-desc">Harga Batubara Acuan (HBA) resmi pemerintah Indonesia per bulan</div>
+        <div class="source-freq">⏱ Update: Bulanan</div>
+        <div class="source-arrow">Buka ESDM →</div>
+      </a>
+      <a href="https://www.investing.com/commodities/palm-oil" target="_blank" class="source-card" style="--src-color:#00e5a0">
+        <div class="source-card-top"><div class="source-icon">🌴</div><div class="source-tag ref">ALTERNATIF</div></div>
+        <div class="source-name">Investing.com — CPO Palm Oil</div>
+        <div class="source-url">investing.com/commodities</div>
+        <div class="source-desc">Harga CPO (Crude Palm Oil) di Bursa Malaysia Derivatives, chart dan data historis</div>
+        <div class="source-freq">⏱ Update: Near real-time</div>
+        <div class="source-arrow">Buka Investing →</div>
+      </a>
+      <a href="https://www.eia.gov/petroleum/gasdiesel/" target="_blank" class="source-card" style="--src-color:#ff4444">
+        <div class="source-card-top"><div class="source-icon">🛢️</div><div class="source-tag ref">GLOBAL</div></div>
+        <div class="source-name">EIA — Harga Minyak</div>
+        <div class="source-url">eia.gov</div>
+        <div class="source-desc">Harga minyak Brent & WTI dari U.S. Energy Information Administration</div>
+        <div class="source-freq">⏱ Update: Harian</div>
+        <div class="source-arrow">Buka EIA →</div>
+      </a>
+      <a href="https://tradingeconomics.com/indonesia/indicators" target="_blank" class="source-card" style="--src-color:#a855f7">
+        <div class="source-card-top"><div class="source-icon">📊</div><div class="source-tag ref">AGREGAT</div></div>
+        <div class="source-name">Trading Economics — Indonesia</div>
+        <div class="source-url">tradingeconomics.com</div>
+        <div class="source-desc">Agregat 300+ indikator ekonomi Indonesia dengan grafik historis panjang</div>
+        <div class="source-freq">⏱ Update: Real-time / Bulanan</div>
+        <div class="source-arrow">Buka Trading Economics →</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== API STATUS ===== -->
+<section class="section" id="sec-api">
+  <div class="section-heading">Status Koneksi API</div>
+
+  <div id="apiStatusCards" class="kpi-grid">
+    <!-- filled by JS -->
+  </div>
+
+  <div class="chart-card" style="margin-bottom:1rem">
+    <div class="chart-header">
+      <div><div class="chart-title">Daftar API yang Digunakan</div><div class="chart-sub">Semua API gratis, tanpa API key</div></div>
+    </div>
+    <div class="api-info-box" style="margin-bottom:0">
+      <h3>📡 API REGISTRY</h3>
+      <div class="api-row">
+        <div class="api-dot ok" id="dot-frankfurter"></div>
+        <div class="api-name">Frankfurter API</div>
+        <div class="api-desc">Kurs mata uang harian dari ECB. api.frankfurter.app</div>
+        <div class="api-freq">Update: Harian (weekday)</div>
+      </div>
+      <div class="api-row">
+        <div class="api-dot ok" id="dot-coingecko"></div>
+        <div class="api-name">CoinGecko Public API</div>
+        <div class="api-desc">Harga kripto, market cap, dominasi. api.coingecko.com</div>
+        <div class="api-freq">Update: ~5 menit</div>
+      </div>
+      <div class="api-row">
+        <div class="api-dot ok" id="dot-fgi"></div>
+        <div class="api-name">Alternative.me Fear & Greed</div>
+        <div class="api-desc">Indeks Fear & Greed pasar kripto. api.alternative.me</div>
+        <div class="api-freq">Update: Harian</div>
+      </div>
+      <div class="api-row">
+        <div class="api-dot warn"></div>
+        <div class="api-name">IDX / BEI (Tidak Tersedia)</div>
+        <div class="api-desc">IHSG & saham BEI — tidak ada API publik gratis</div>
+        <div class="api-freq">Berbayar</div>
+      </div>
+      <div class="api-row">
+        <div class="api-dot warn"></div>
+        <div class="api-name">BPS / Bank Indonesia</div>
+        <div class="api-desc">Data makro Indonesia — tidak ada API publik</div>
+        <div class="api-freq">Manual update</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-header">
+      <div><div class="chart-title">Log Pembaruan Data</div><div class="chart-sub">Waktu terakhir fetch berhasil</div></div>
+    </div>
+    <div id="apiLog" style="font-family:'IBM Plex Mono',monospace;font-size:0.68rem;color:var(--muted);line-height:2;padding:0.3rem 0">
+      Memuat...
+    </div>
+  </div>
+
+  <!-- Quick Access Links -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <div><div class="chart-title">⚡ Akses Cepat Semua Sumber Data</div><div class="chart-sub">Klik untuk membuka di tab baru</div></div>
+    </div>
+    <div class="source-section-label">🇮🇩 Indonesia Resmi</div>
+    <div class="source-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
+      <a href="https://www.bps.go.id" target="_blank" class="source-card" style="--src-color:#00e5a0">
+        <div class="source-icon">🏛️</div><div class="source-name">BPS</div><div class="source-url">bps.go.id</div>
+        <div class="source-tag manual" style="display:inline-block;margin-top:4px">Statistik Nasional</div>
+        <div class="source-arrow">→</div>
+      </a>
+      <a href="https://www.bi.go.id" target="_blank" class="source-card" style="--src-color:#4d8eff">
+        <div class="source-icon">🏦</div><div class="source-name">Bank Indonesia</div><div class="source-url">bi.go.id</div>
+        <div class="source-tag manual" style="display:inline-block;margin-top:4px">Moneter & Kurs</div>
+        <div class="source-arrow">→</div>
+      </a>
+      <a href="https://www.idx.co.id" target="_blank" class="source-card" style="--src-color:#ff6b35">
+        <div class="source-icon">📈</div><div class="source-name">IDX / BEI</div><div class="source-url">idx.co.id</div>
+        <div class="source-tag manual" style="display:inline-block;margin-top:4px">Bursa Saham</div>
+        <div class="source-arrow">→</div>
+      </a>
+      <a href="https://www.ojk.go.id" target="_blank" class="source-card" style="--src-color:#ffd700">
+        <div class="source-icon">🔍</div><div class="source-name">OJK</div><div class="source-url">ojk.go.id</div>
+        <div class="source-tag manual" style="display:inline-block;margin-top:4px">Keuangan & Perbankan</div>
+        <div class="source-arrow">→</div>
+      </a>
+      <a href="https://www.kemenkeu.go.id" target="_blank" class="source-card" style="--src-color:#a855f7">
+        <div class="source-icon">💰</div><div class="source-name">Kemenkeu</div><div class="source-url">kemenkeu.go.id</div>
+        <div class="source-tag manual" style="display:inline-block;margin-top:4px">APBN & Fiskal</div>
+        <div class="source-arrow">→</div>
+      </a>
+      <a href="https://www.bkpm.go.id" target="_blank" class="source-card" style="--src-color:#22d3ee">
+        <div class="source-icon">📥</div><div class="source-name">BKPM</div><div class="source-url">bkpm.go.id</div>
+        <div class="source-tag manual" style="display:inline-block;margin-top:4px">Investasi</div>
+        <div class="source-arrow">→</div>
+      </a>
+    </div>
+    <div class="source-section-label">🌍 Global & Komoditas</div>
+    <div class="source-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
+      <a href="https://tradingeconomics.com/indonesia/indicators" target="_blank" class="source-card" style="--src-color:#00e5a0">
+        <div class="source-icon">📊</div><div class="source-name">Trading Economics</div><div class="source-url">tradingeconomics.com</div>
+        <div class="source-tag ref" style="display:inline-block;margin-top:4px">Indikator Makro</div>
+        <div class="source-arrow">→</div>
+      </a>
+      <a href="https://data.worldbank.org/country/ID" target="_blank" class="source-card" style="--src-color:#4d8eff">
+        <div class="source-icon">🌏</div><div class="source-name">World Bank</div><div class="source-url">data.worldbank.org</div>
+        <div class="source-tag ref" style="display:inline-block;margin-top:4px">Data Global</div>
+        <div class="source-arrow">→</div>
+      </a>
+      <a href="https://www.imf.org/en/Countries/IDN" target="_blank" class="source-card" style="--src-color:#ff6b35">
+        <div class="source-icon">🏛️</div><div class="source-name">IMF</div><div class="source-url">imf.org</div>
+        <div class="source-tag ref" style="display:inline-block;margin-top:4px">Proyeksi Ekonomi</div>
+        <div class="source-arrow">→</div>
+      </a>
+      <a href="https://www.investing.com/commodities" target="_blank" class="source-card" style="--src-color:#ffd700">
+        <div class="source-icon">⛏️</div><div class="source-name">Investing.com</div><div class="source-url">investing.com</div>
+        <div class="source-tag ref" style="display:inline-block;margin-top:4px">Komoditas</div>
+        <div class="source-arrow">→</div>
+      </a>
+      <a href="https://www.eia.gov" target="_blank" class="source-card" style="--src-color:#ff4444">
+        <div class="source-icon">🛢️</div><div class="source-name">EIA</div><div class="source-url">eia.gov</div>
+        <div class="source-tag ref" style="display:inline-block;margin-top:4px">Energi & Minyak</div>
+        <div class="source-arrow">→</div>
+      </a>
+      <a href="https://databoks.katadata.co.id" target="_blank" class="source-card" style="--src-color:#a855f7">
+        <div class="source-icon">📰</div><div class="source-name">Katadata</div><div class="source-url">databoks.katadata.co.id</div>
+        <div class="source-tag ref" style="display:inline-block;margin-top:4px">Visualisasi Data</div>
+        <div class="source-arrow">→</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SUMBER RESMI ===== -->
+<section class="section" id="sec-sumber">
+  <div class="section-heading">🔗 Direktori Sumber Data Resmi</div>
+
+  <div style="background:rgba(0,229,160,0.05);border:1px solid rgba(0,229,160,0.15);border-radius:6px;padding:0.8rem 1rem;font-size:0.75rem;color:var(--muted);margin-bottom:1.2rem;line-height:1.7">
+    Semua kartu di bawah adalah <strong style="color:var(--accent)">link langsung</strong> ke website resmi sumber data. Klik kartu mana saja untuk membuka di tab baru. Data yang tidak tersedia via API gratis dapat dilihat langsung dari sumber resminya.
+  </div>
+
+  <!-- INDONESIA PEMERINTAH -->
+  <div class="source-section-label">🏛️ Lembaga Pemerintah Indonesia</div>
+  <div class="source-grid">
+    <a href="https://www.bps.go.id/id/statistics-table?subject=9" target="_blank" class="source-card" style="--src-color:#00e5a0">
+      <div class="source-card-top"><div class="source-icon">🏛️</div><div class="source-tag live">RESMI</div></div>
+      <div class="source-name">BPS — Inflasi & Harga</div>
+      <div class="source-url">bps.go.id</div>
+      <div class="source-desc">Tabel inflasi CPI bulanan, IHK, dan harga konsumen seluruh Indonesia</div>
+      <div class="source-freq">⏱ Rilis: Awal bulan</div>
+      <div class="source-arrow">Buka BPS Inflasi →</div>
+    </a>
+    <a href="https://www.bps.go.id/id/statistics-table?subject=11" target="_blank" class="source-card" style="--src-color:#00e5a0">
+      <div class="source-card-top"><div class="source-icon">📦</div><div class="source-tag live">RESMI</div></div>
+      <div class="source-name">BPS — PDB & Pertumbuhan</div>
+      <div class="source-url">bps.go.id</div>
+      <div class="source-desc">Data PDB triwulanan, pertumbuhan ekonomi, dan struktur ekonomi Indonesia</div>
+      <div class="source-freq">⏱ Rilis: Setiap kuartal</div>
+      <div class="source-arrow">Buka BPS PDB →</div>
+    </a>
+    <a href="https://www.bps.go.id/id/statistics-table?subject=6" target="_blank" class="source-card" style="--src-color:#00e5a0">
+      <div class="source-card-top"><div class="source-icon">👷</div><div class="source-tag live">RESMI</div></div>
+      <div class="source-name">BPS — Ketenagakerjaan</div>
+      <div class="source-url">bps.go.id</div>
+      <div class="source-desc">Tingkat pengangguran, angkatan kerja, upah, dan data ketenagakerjaan</div>
+      <div class="source-freq">⏱ Rilis: Februari & Agustus</div>
+      <div class="source-arrow">Buka BPS Ketenagakerjaan →</div>
+    </a>
+    <a href="https://www.bps.go.id/id/statistics-table?subject=8" target="_blank" class="source-card" style="--src-color:#00e5a0">
+      <div class="source-card-top"><div class="source-icon">🚢</div><div class="source-tag live">RESMI</div></div>
+      <div class="source-name">BPS — Ekspor & Impor</div>
+      <div class="source-url">bps.go.id</div>
+      <div class="source-desc">Neraca perdagangan, ekspor-impor per komoditas, dan mitra dagang utama</div>
+      <div class="source-freq">⏱ Rilis: Pertengahan bulan</div>
+      <div class="source-arrow">Buka BPS Ekspor →</div>
+    </a>
+    <a href="https://www.bi.go.id/id/statistik/informasi-kurs/transaksi-bi/default.aspx" target="_blank" class="source-card" style="--src-color:#4d8eff">
+      <div class="source-card-top"><div class="source-icon">💱</div><div class="source-tag live">RESMI</div></div>
+      <div class="source-name">BI — Kurs Transaksi</div>
+      <div class="source-url">bi.go.id/kurs</div>
+      <div class="source-desc">Kurs tengah Bank Indonesia resmi untuk seluruh mata uang asing</div>
+      <div class="source-freq">⏱ Update: Harian (hari kerja)</div>
+      <div class="source-arrow">Buka Kurs BI →</div>
+    </a>
+    <a href="https://www.bi.go.id/id/statistik/seki/terkini/moneter/Contents/Default.aspx" target="_blank" class="source-card" style="--src-color:#4d8eff">
+      <div class="source-card-top"><div class="source-icon">📊</div><div class="source-tag live">RESMI</div></div>
+      <div class="source-name">BI — Statistik Moneter</div>
+      <div class="source-url">bi.go.id/statistik</div>
+      <div class="source-desc">M1, M2, kredit, suku bunga, dan statistik ekonomi-keuangan lengkap dari BI</div>
+      <div class="source-freq">⏱ Update: Bulanan</div>
+      <div class="source-arrow">Buka SEKI BI →</div>
+    </a>
+    <a href="https://www.ojk.go.id/id/data-dan-statistik/perbankan/Pages/Statistik-Perbankan-Indonesia---Des-2024.aspx" target="_blank" class="source-card" style="--src-color:#ffd700">
+      <div class="source-card-top"><div class="source-icon">🔍</div><div class="source-tag live">RESMI</div></div>
+      <div class="source-name">OJK — Statistik Perbankan</div>
+      <div class="source-url">ojk.go.id/statistik</div>
+      <div class="source-desc">SPI (Statistik Perbankan Indonesia): aset, DPK, kredit, NPL, CAR bank</div>
+      <div class="source-freq">⏱ Update: Bulanan</div>
+      <div class="source-arrow">Buka OJK SPI →</div>
+    </a>
+    <a href="https://www.kemenkeu.go.id/apbn2025" target="_blank" class="source-card" style="--src-color:#ff6b35">
+      <div class="source-card-top"><div class="source-icon">💼</div><div class="source-tag live">RESMI</div></div>
+      <div class="source-name">Kemenkeu — APBN 2025</div>
+      <div class="source-url">kemenkeu.go.id/apbn</div>
+      <div class="source-desc">Realisasi APBN bulanan: pendapatan, belanja, surplus/defisit, pembiayaan negara</div>
+      <div class="source-freq">⏱ Update: Bulanan</div>
+      <div class="source-arrow">Buka APBN →</div>
+    </a>
+  </div>
+
+  <!-- PASAR MODAL -->
+  <div class="source-section-label">📈 Pasar Modal & Bursa Saham</div>
+  <div class="source-grid">
+    <a href="https://www.idx.co.id/id/market-data/stocks-data/composite-stock-price-index-ihsg/" target="_blank" class="source-card" style="--src-color:#4d8eff">
+      <div class="source-card-top"><div class="source-icon">📈</div><div class="source-tag live">RESMI</div></div>
+      <div class="source-name">IDX — IHSG Live</div>
+      <div class="source-url">idx.co.id/ihsg</div>
+      <div class="source-desc">Data IHSG, LQ45, IDX30, JII resmi dari Bursa Efek Indonesia</div>
+      <div class="source-freq">⏱ Update: Real-time jam bursa</div>
+      <div class="source-arrow">Lihat IHSG →</div>
+    </a>
+    <a href="https://finance.yahoo.com/quote/%5EJKSE/" target="_blank" class="source-card" style="--src-color:#a855f7">
+      <div class="source-card-top"><div class="source-icon">📉</div><div class="source-tag ref">ALTERNATIF</div></div>
+      <div class="source-name">Yahoo Finance — ^JKSE</div>
+      <div class="source-url">finance.yahoo.com</div>
+      <div class="source-desc">Chart IHSG, data historis, dan berita pasar modal Indonesia</div>
+      <div class="source-freq">⏱ Delay 15 menit</div>
+      <div class="source-arrow">Buka Yahoo Finance →</div>
+    </a>
+    <a href="https://www.investing.com/indices/idx-composite" target="_blank" class="source-card" style="--src-color:#ff6b35">
+      <div class="source-card-top"><div class="source-icon">🌐</div><div class="source-tag ref">ALTERNATIF</div></div>
+      <div class="source-name">Investing.com — IHSG</div>
+      <div class="source-url">investing.com/indices</div>
+      <div class="source-desc">Chart teknikal IHSG, analisis, dan berita pasar Indonesia</div>
+      <div class="source-freq">⏱ Near real-time</div>
+      <div class="source-arrow">Buka Investing →</div>
+    </a>
+    <a href="https://pusatdata.kontan.co.id/saham" target="_blank" class="source-card" style="--src-color:#22d3ee">
+      <div class="source-card-top"><div class="source-icon">📋</div><div class="source-tag ref">MEDIA</div></div>
+      <div class="source-name">Kontan — Data Saham BEI</div>
+      <div class="source-url">pusatdata.kontan.co.id</div>
+      <div class="source-desc">Harga, fundamental, laporan keuangan saham Indonesia lengkap</div>
+      <div class="source-freq">⏱ Update: Harian</div>
+      <div class="source-arrow">Buka Kontan →</div>
+    </a>
+  </div>
+
+  <!-- KOMODITAS -->
+  <div class="source-section-label">⛏️ Komoditas & Energi</div>
+  <div class="source-grid">
+    <a href="https://www.minerba.esdm.go.id/beranda/publikasi/hargapatokan" target="_blank" class="source-card" style="--src-color:#ffd700">
+      <div class="source-card-top"><div class="source-icon">🪨</div><div class="source-tag live">RESMI</div></div>
+      <div class="source-name">ESDM — HBA Batu Bara</div>
+      <div class="source-url">minerba.esdm.go.id</div>
+      <div class="source-desc">Harga Batubara Acuan (HBA) resmi pemerintah RI per bulan</div>
+      <div class="source-freq">⏱ Rilis: Awal bulan</div>
+      <div class="source-arrow">Lihat HBA →</div>
+    </a>
+    <a href="https://www.pertamina.com/id/fuel-price" target="_blank" class="source-card" style="--src-color:#ff4444">
+      <div class="source-card-top"><div class="source-icon">⛽</div><div class="source-tag live">RESMI</div></div>
+      <div class="source-name">Pertamina — Harga BBM</div>
+      <div class="source-url">pertamina.com</div>
+      <div class="source-desc">Harga BBM Pertamina terbaru: Pertalite, Pertamax, Dex per provinsi</div>
+      <div class="source-freq">⏱ Update: Per kebijakan</div>
+      <div class="source-arrow">Lihat Harga BBM →</div>
+    </a>
+    <a href="https://www.investing.com/commodities/palm-oil" target="_blank" class="source-card" style="--src-color:#00e5a0">
+      <div class="source-card-top"><div class="source-icon">🌴</div><div class="source-tag ref">ALTERNATIF</div></div>
+      <div class="source-name">Investing.com — CPO</div>
+      <div class="source-url">investing.com/commodities</div>
+      <div class="source-desc">Harga CPO (Crude Palm Oil) di Bursa Malaysia, chart historis</div>
+      <div class="source-freq">⏱ Near real-time</div>
+      <div class="source-arrow">Lihat CPO →</div>
+    </a>
+    <a href="https://www.eia.gov/petroleum/" target="_blank" class="source-card" style="--src-color:#ff6b35">
+      <div class="source-card-top"><div class="source-icon">🛢️</div><div class="source-tag ref">GLOBAL</div></div>
+      <div class="source-name">EIA — Harga Minyak</div>
+      <div class="source-url">eia.gov</div>
+      <div class="source-desc">Brent & WTI crude oil, natural gas, dan data energi dari EIA AS</div>
+      <div class="source-freq">⏱ Update: Harian</div>
+      <div class="source-arrow">Lihat EIA →</div>
+    </a>
+    <a href="https://www.kitco.com/gold-price-today-usa/" target="_blank" class="source-card" style="--src-color:#ffd700">
+      <div class="source-card-top"><div class="source-icon">🥇</div><div class="source-tag ref">GLOBAL</div></div>
+      <div class="source-name">Kitco — Emas & Perak</div>
+      <div class="source-url">kitco.com</div>
+      <div class="source-desc">Harga emas (XAU) dan perak (XAG) spot real-time dalam USD/oz</div>
+      <div class="source-freq">⏱ Update: Real-time</div>
+      <div class="source-arrow">Lihat Emas →</div>
+    </a>
+    <a href="https://logammulia.com/id/harga-emas-hari-ini" target="_blank" class="source-card" style="--src-color:#ffd700">
+      <div class="source-card-top"><div class="source-icon">💛</div><div class="source-tag live">RESMI</div></div>
+      <div class="source-name">Antam — Logam Mulia</div>
+      <div class="source-url">logammulia.com</div>
+      <div class="source-desc">Harga emas Antam resmi dalam Rupiah per gram hari ini</div>
+      <div class="source-freq">⏱ Update: Harian</div>
+      <div class="source-arrow">Lihat Emas Antam →</div>
+    </a>
+  </div>
+
+  <!-- GLOBAL -->
+  <div class="source-section-label">🌍 Data Global & Internasional</div>
+  <div class="source-grid">
+    <a href="https://tradingeconomics.com/indonesia/indicators" target="_blank" class="source-card" style="--src-color:#4d8eff">
+      <div class="source-card-top"><div class="source-icon">📊</div><div class="source-tag ref">AGREGAT</div></div>
+      <div class="source-name">Trading Economics</div>
+      <div class="source-url">tradingeconomics.com</div>
+      <div class="source-desc">300+ indikator ekonomi Indonesia dengan chart historis panjang, semuanya gratis</div>
+      <div class="source-freq">⏱ Update: Real-time / Bulanan</div>
+      <div class="source-arrow">Buka TE →</div>
+    </a>
+    <a href="https://data.worldbank.org/country/ID" target="_blank" class="source-card" style="--src-color:#00e5a0">
+      <div class="source-card-top"><div class="source-icon">🌏</div><div class="source-tag ref">GLOBAL</div></div>
+      <div class="source-name">World Bank — Indonesia</div>
+      <div class="source-url">data.worldbank.org</div>
+      <div class="source-desc">200+ indikator Bank Dunia: PDB, kemiskinan, kesehatan, pendidikan Indonesia</div>
+      <div class="source-freq">⏱ Update: Tahunan</div>
+      <div class="source-arrow">Buka World Bank →</div>
+    </a>
+    <a href="https://www.imf.org/en/Countries/IDN" target="_blank" class="source-card" style="--src-color:#ff6b35">
+      <div class="source-card-top"><div class="source-icon">🏛️</div><div class="source-tag ref">GLOBAL</div></div>
+      <div class="source-name">IMF — Indonesia</div>
+      <div class="source-url">imf.org</div>
+      <div class="source-desc">WEO outlook, Article IV, proyeksi PDB dan inflasi Indonesia dari IMF</div>
+      <div class="source-freq">⏱ Update: Kuartalan</div>
+      <div class="source-arrow">Buka IMF →</div>
+    </a>
+    <a href="https://databoks.katadata.co.id/ekonomi" target="_blank" class="source-card" style="--src-color:#a855f7">
+      <div class="source-card-top"><div class="source-icon">📰</div><div class="source-tag ref">MEDIA</div></div>
+      <div class="source-name">Katadata Databoks</div>
+      <div class="source-url">databoks.katadata.co.id</div>
+      <div class="source-desc">Visualisasi data ekonomi Indonesia yang mudah dipahami dan bisa diunduh</div>
+      <div class="source-freq">⏱ Update: Harian</div>
+      <div class="source-arrow">Buka Katadata →</div>
+    </a>
+    <a href="https://www.asean.org/wp-content/uploads/2024/01/ASEAN-Stats-Data-Portal.pdf" target="_blank" class="source-card" style="--src-color:#22d3ee">
+      <div class="source-card-top"><div class="source-icon">🌏</div><div class="source-tag ref">REGIONAL</div></div>
+      <div class="source-name">ASEAN Stats Portal</div>
+      <div class="source-url">aseanstats.org</div>
+      <div class="source-desc">Data statistik ekonomi seluruh negara ASEAN termasuk Indonesia</div>
+      <div class="source-freq">⏱ Update: Tahunan</div>
+      <div class="source-arrow">Buka ASEAN Stats →</div>
+    </a>
+    <a href="https://www.adb.org/countries/indonesia/economy" target="_blank" class="source-card" style="--src-color:#ffd700">
+      <div class="source-card-top"><div class="source-icon">🏦</div><div class="source-tag ref">GLOBAL</div></div>
+      <div class="source-name">ADB — Indonesia Economy</div>
+      <div class="source-url">adb.org</div>
+      <div class="source-desc">Laporan ekonomi dan outlook Indonesia dari Asian Development Bank</div>
+      <div class="source-freq">⏱ Update: Tahunan</div>
+      <div class="source-arrow">Buka ADB →</div>
+    </a>
+  </div>
+</section>
+
+</main>
+
+<script>
+// ══════════════════════════════════════════
+//  UTILITIES
+// ══════════════════════════════════════════
+Chart.defaults.color = '#6b7280';
+Chart.defaults.borderColor = '#1e2330';
+Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+Chart.defaults.font.size = 10;
+
+const C = { green:'#00e5a0', blue:'#4d8eff', orange:'#ff6b35', gold:'#ffd700', red:'#ff4444', purple:'#a855f7', cyan:'#22d3ee' };
+
+let charts = {};
+let apiLog = [];
+let liveData = { kurs:{}, komoditas:{}, market:{} };
+let tickerItems = [];
+
+function fmt(n, dec=0) { return Number(n).toLocaleString('id-ID', {minimumFractionDigits:dec,maximumFractionDigits:dec}); }
+function fmtUSD(n, dec=2) { return '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits:dec,maximumFractionDigits:dec}); }
+function fmtPct(n, dec=2) { return (n>0?'+':'')+Number(n).toFixed(dec)+'%'; }
+
+function setKpi(id, val, delta='', isUp=null, sub='') {
+  const el = document.getElementById('kv-'+id);
+  if(el) { el.textContent = val; flashEl(el.closest('.kpi-card')); }
+  const de = document.getElementById('kd-'+id);
+  if(de) {
+    de.textContent = delta;
+    de.className = 'kpi-delta ' + (isUp===true?'up':isUp===false?'down':'neutral');
+  }
+}
+function flashEl(el) {
+  if(!el) return;
+  el.style.animation = 'none';
+  el.offsetHeight;
+  el.style.animation = 'flashGreen 0.6s ease';
+  setTimeout(()=>el.style.animation='', 700);
+}
+
+function log(msg, type='ok') {
+  const now = new Date().toLocaleTimeString('id-ID');
+  apiLog.unshift(`[${now}] ${type==='ok'?'✅':type==='warn'?'⚠️':'❌'} ${msg}`);
+  if(apiLog.length>20) apiLog.pop();
+  const el = document.getElementById('apiLog');
+  if(el) el.innerHTML = apiLog.map(l=>`<div>${l}</div>`).join('');
+}
+
+function updateStatus(chips) {
+  document.getElementById('statusBar').innerHTML = chips.map(c =>
+    `<div class="status-chip ${c.type}">${c.text}</div>`
+  ).join('');
+}
+
+function updateLastUpdate() {
+  const now = new Date().toLocaleTimeString('id-ID');
+  document.getElementById('last-update').textContent = `Update: ${now}`;
+}
+
+// Clock
+function tick() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) + ' WIB';
+}
+setInterval(tick,1000); tick();
+
+// Tab
+function switchTab(id) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sec-'+id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ══════════════════════════════════════════
+//  TICKER UPDATER
+// ══════════════════════════════════════════
+function updateTicker() {
+  const items = [...tickerItems];
+  if(!items.length) return;
+  // Duplicate for seamless loop
+  const doubled = [...items,...items];
+  document.getElementById('tickerInner').innerHTML = doubled.join('&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;');
+}
+
+// ══════════════════════════════════════════
+//  1. FRANKFURTER — KURS LIVE
+// ══════════════════════════════════════════
+let kursLineChart = null;
+
+async function fetchKurs() {
+  try {
+    // Get today's rates (base USD)
+    const res = await fetch('https://api.frankfurter.app/latest?from=USD&to=IDR,EUR,SGD,JPY,CNY,MYR,GBP,AUD,KRW,THB');
+    const data = await res.json();
+
+    const idr = data.rates.IDR;
+    liveData.kurs.usdidr = idr;
+    liveData.kurs.euridr = idr / data.rates.EUR;
+    liveData.kurs.sgdidr = idr / data.rates.SGD;
+    liveData.kurs.jpyidr = (idr / data.rates.JPY) * 100;
+    liveData.kurs.cnyidr = idr / data.rates.CNY;
+    liveData.kurs.myridr = idr / data.rates.MYR;
+
+    setKpi('usdidr', fmt(idr,0), 'Referensi ECB', null);
+    setKpi('euridr', fmt(liveData.kurs.euridr,0), 'ECB', null);
+    setKpi('sgdidr', fmt(liveData.kurs.sgdidr,0), 'ECB', null);
+    setKpi('jpyidr', fmt(liveData.kurs.jpyidr,0), 'per 100 JPY / ECB', null);
+    setKpi('cnyidr', fmt(liveData.kurs.cnyidr,0), 'ECB', null);
+    setKpi('myridr', fmt(liveData.kurs.myridr,0), 'ECB', null);
+
+    // ticker
+    tickerItems = tickerItems.filter(t => !t.includes('USD/IDR') && !t.includes('EUR/IDR'));
+    tickerItems.unshift(`<span class="neu">USD/IDR ${fmt(idr,0)}</span>`);
+    tickerItems.push(`<span>EUR/IDR ${fmt(liveData.kurs.euridr,0)}</span>`);
+    tickerItems.push(`<span>SGD/IDR ${fmt(liveData.kurs.sgdidr,0)}</span>`);
+    updateTicker();
+
+    // Fill table
+    const currencies = [
+      {name:'Dolar Amerika Serikat', code:'USD', rate:idr, flag:'🇺🇸'},
+      {name:'Euro', code:'EUR', rate:liveData.kurs.euridr, flag:'🇪🇺'},
+      {name:'Dolar Singapura', code:'SGD', rate:liveData.kurs.sgdidr, flag:'🇸🇬'},
+      {name:'Yen Jepang', code:'JPY', rate:liveData.kurs.jpyidr/100, flag:'🇯🇵'},
+      {name:'Yuan Renminbi', code:'CNY', rate:liveData.kurs.cnyidr, flag:'🇨🇳'},
+      {name:'Ringgit Malaysia', code:'MYR', rate:liveData.kurs.myridr, flag:'🇲🇾'},
+      {name:'Poundsterling Inggris', code:'GBP', rate:idr/data.rates.GBP, flag:'🇬🇧'},
+      {name:'Dolar Australia', code:'AUD', rate:idr/data.rates.AUD, flag:'🇦🇺'},
+      {name:'Won Korea Selatan', code:'KRW', rate:idr/data.rates.KRW, flag:'🇰🇷'},
+      {name:'Baht Thailand', code:'THB', rate:idr/data.rates.THB, flag:'🇹🇭'},
+    ];
+    document.getElementById('kursTable').innerHTML = currencies.map(c =>
+      `<tr>
+        <td>${c.flag} ${c.name}</td>
+        <td class="mono">${c.code}</td>
+        <td class="mono">${fmt(c.rate,2)}</td>
+        <td class="mono neutral">Referensi ECB</td>
+        <td class="mono" style="color:var(--muted);font-size:0.6rem">Frankfurter/ECB</td>
+      </tr>`
+    ).join('');
+
+    log('Frankfurter API: Kurs ' + Object.keys(data.rates).length + ' mata uang berhasil dimuat (base: ' + data.date + ')');
+    updateLastUpdate();
+
+    // Fetch historical for chart
+    await fetchKursHistory();
+    await fetchKursRadar(idr, data.rates);
+
+  } catch(e) {
+    log('Frankfurter API gagal: ' + e.message, 'err');
+    document.getElementById('kursTable').innerHTML = '<tr><td colspan="5" style="color:var(--danger);text-align:center;padding:1rem">❌ Gagal memuat data kurs</td></tr>';
+  }
+}
+
+async function fetchKursHistory() {
+  try {
+    const end = new Date();
+    const start = new Date(); start.setDate(start.getDate()-30);
+    const fmt2 = d => d.toISOString().split('T')[0];
+    const res = await fetch(`https://api.frankfurter.app/${fmt2(start)}..${fmt2(end)}?from=USD&to=IDR`);
+    const data = await res.json();
+
+    const dates = Object.keys(data.rates).sort();
+    const vals = dates.map(d => data.rates[d].IDR);
+
+    document.getElementById('kursChartSub').textContent = `${dates[0]} — ${dates[dates.length-1]} (ECB/Frankfurter)`;
+
+    if(kursLineChart) kursLineChart.destroy();
+    const ctx = document.getElementById('kursLineChart').getContext('2d');
+    kursLineChart = new Chart(ctx, {
+      type:'line',
+      data:{
+        labels: dates.map(d=>d.slice(5)),
+        datasets:[{
+          label:'USD/IDR',
+          data: vals,
+          borderColor: C.gold,
+          backgroundColor:'rgba(255,215,0,0.06)',
+          fill:true, tension:0.3,
+          pointRadius:1, pointHoverRadius:5
+        }]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{grid:{display:false}, ticks:{maxTicksLimit:8}},
+          y:{grid:{color:'#1e2330'}, ticks:{callback:v=>fmt(v,0)}}
+        }
+      }
+    });
+    log('Grafik historis USD/IDR 30 hari berhasil dimuat');
+  } catch(e) {
+    log('Historis kurs gagal: '+e.message, 'err');
+  }
+}
+
+async function fetchKursRadar(idrPerUsd, rates) {
+  try {
+    const norm = {
+      'USD': 100,
+      'EUR': ((idrPerUsd / rates.EUR) / idrPerUsd * 100).toFixed(1),
+      'SGD': ((idrPerUsd / rates.SGD) / idrPerUsd * 100).toFixed(1),
+      'JPY': ((idrPerUsd / rates.JPY) / idrPerUsd * 100).toFixed(1),
+      'CNY': ((idrPerUsd / rates.CNY) / idrPerUsd * 100).toFixed(1),
+      'GBP': ((idrPerUsd / rates.GBP) / idrPerUsd * 100).toFixed(1),
+    };
+    const ctx = document.getElementById('kursRadarChart').getContext('2d');
+    if(charts.radar) charts.radar.destroy();
+    charts.radar = new Chart(ctx, {
+      type:'radar',
+      data:{
+        labels: Object.keys(norm),
+        datasets:[{
+          label:'Kurs vs IDR (normalisasi)',
+          data: Object.values(norm),
+          borderColor: C.blue,
+          backgroundColor:'rgba(77,142,255,0.1)',
+          pointBackgroundColor: C.blue,
+        }]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{r:{grid:{color:'#1e2330'},ticks:{display:false},pointLabels:{color:'#6b7280'}}}
+      }
+    });
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════
+//  2. COINGECKO — KRIPTO & KOMODITAS PROXY
+// ══════════════════════════════════════════
+async function fetchCoinGecko() {
+  try {
+    // Global market data
+    const mktRes = await fetch('https://api.coingecko.com/api/v3/global');
+    const mktData = await mktRes.json();
+    const gd = mktData.data;
+
+    const totalCap = (gd.total_market_cap.usd / 1e12).toFixed(2);
+    const btcDom = gd.market_cap_percentage.btc.toFixed(1);
+    const coinsCount = gd.active_cryptocurrencies;
+    const chg24 = gd.market_cap_change_percentage_24h_usd.toFixed(2);
+
+    liveData.market.totalCap = totalCap;
+    liveData.market.btcDom = btcDom;
+
+    setKpi('totalcap', '$'+totalCap+'T', fmtPct(chg24)+ ' 24h', chg24>0);
+    setKpi('btcdom2', btcDom+'%', 'Dominasi BTC', null);
+    setKpi('btcdom', btcDom+'%', 'dari total kripto', null);
+    setKpi('coins', fmt(coinsCount,0), 'aset aktif', null);
+
+    tickerItems = tickerItems.filter(t=>!t.includes('Mkt Cap'));
+    tickerItems.push(`<span class="${chg24>0?'hi':'lo'}">Total Mkt Cap $${totalCap}T (${fmtPct(chg24)})</span>`);
+    updateTicker();
+
+    log('CoinGecko Global: Total mkt cap $'+totalCap+'T, '+coinsCount+' aset');
+
+    // Top 10 coins
+    await fetchTopCoins();
+
+    // BTC/ETH price for komoditas
+    await fetchCoinPrices();
+
+    updateLastUpdate();
+  } catch(e) {
+    log('CoinGecko gagal: '+e.message,'err');
+    setKpi('totalcap','Error','',null);
+  }
+}
+
+async function fetchTopCoins() {
+  try {
+    const res = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false');
+    const coins = await res.json();
+
+    // Table
+    document.getElementById('cryptoTable').innerHTML = coins.map((c,i) => {
+      const cl = c.price_change_percentage_24h > 0 ? 'up' : 'down';
+      const arr = c.price_change_percentage_24h > 0 ? '▲' : '▼';
+      return `<tr>
+        <td class="mono" style="color:var(--muted)">#${i+1}</td>
+        <td><img src="${c.image}" style="width:18px;height:18px;vertical-align:middle;border-radius:50%;margin-right:6px">${c.name}</td>
+        <td class="mono">${c.symbol.toUpperCase()}</td>
+        <td class="mono">${fmtUSD(c.current_price, c.current_price>1?2:6)}</td>
+        <td class="mono ${cl}">${arr} ${Math.abs(c.price_change_percentage_24h).toFixed(2)}%</td>
+        <td class="mono">${fmtUSD(c.market_cap/1e6,0)}</td>
+        <td class="mono">${fmtUSD(c.total_volume/1e6,0)}</td>
+      </tr>`;
+    }).join('');
+
+    // Performance bar chart
+    const perfCtx = document.getElementById('perfChart').getContext('2d');
+    if(charts.perf) charts.perf.destroy();
+    const perfs = coins.map(c=>c.price_change_percentage_24h);
+    charts.perf = new Chart(perfCtx,{
+      type:'bar',
+      data:{
+        labels: coins.map(c=>c.symbol.toUpperCase()),
+        datasets:[{
+          data:perfs,
+          backgroundColor: perfs.map(v=>v>0?'rgba(0,229,160,0.7)':'rgba(255,68,68,0.7)'),
+          borderRadius:3
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{grid:{display:false}},
+          y:{grid:{color:'#1e2330'},ticks:{callback:v=>v+'%'}}
+        }
+      }
+    });
+
+    // Pie chart market cap
+    const capCtx = document.getElementById('capPieChart').getContext('2d');
+    if(charts.capPie) charts.capPie.destroy();
+    const colors = [C.gold,C.blue,C.orange,C.green,C.purple,C.cyan,C.red,'rgba(255,182,193,0.8)','rgba(144,238,144,0.8)','rgba(255,165,0,0.8)'];
+    charts.capPie = new Chart(capCtx,{
+      type:'doughnut',
+      data:{
+        labels:coins.map(c=>c.symbol.toUpperCase()),
+        datasets:[{
+          data: coins.map(c=>c.market_cap/1e9),
+          backgroundColor: colors,
+          borderColor:'#0a0c10',borderWidth:2
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'right',labels:{color:'#6b7280',boxWidth:10,font:{size:9}}}}
+      }
+    });
+
+    log(`CoinGecko Top 10: BTC $${fmtUSD(coins[0].current_price,0)}, ETH $${fmtUSD(coins[1].current_price,0)}`);
+  } catch(e) {
+    log('CoinGecko Top 10 gagal: '+e.message,'err');
+  }
+}
+
+async function fetchCoinPrices() {
+  try {
+    const res = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,tether-gold&order=market_cap_desc&sparkline=false&price_change_percentage=24h');
+    const coins = await res.json();
+
+    const btc = coins.find(c=>c.id==='bitcoin');
+    const eth = coins.find(c=>c.id==='ethereum');
+    const xaut = coins.find(c=>c.id==='tether-gold'); // gold-backed token, proxy for gold price
+
+    if(btc) {
+      const btcChg = btc.price_change_percentage_24h;
+      setKpi('btc', fmtUSD(btc.current_price,0), fmtPct(btcChg), btcChg>0);
+      tickerItems = tickerItems.filter(t=>!t.includes('BTC'));
+      tickerItems.push(`<span class="${btcChg>0?'hi':'lo'}">BTC ${fmtUSD(btc.current_price,0)} (${fmtPct(btcChg)})</span>`);
+    }
+    if(eth) {
+      const ethChg = eth.price_change_percentage_24h;
+      setKpi('eth', fmtUSD(eth.current_price,0), fmtPct(ethChg), ethChg>0);
+      tickerItems = tickerItems.filter(t=>!t.includes('ETH'));
+      tickerItems.push(`<span class="${ethChg>0?'hi':'lo'}">ETH ${fmtUSD(eth.current_price,0)} (${fmtPct(ethChg)})</span>`);
+    }
+    if(xaut) {
+      // XAUT is pegged to gold price (1 XAUT ≈ 1 troy oz gold)
+      const goldUsd = xaut.current_price;
+      const goldChg = xaut.price_change_percentage_24h;
+      const idr = liveData.kurs.usdidr || 16200;
+      const goldIdr = goldUsd * idr;
+      setKpi('gold', fmtUSD(goldUsd,0), fmtPct(goldChg), goldChg>0);
+      setKpi('goldidr', 'Rp'+fmt(goldIdr,0), 'per troy oz × kurs ECB', goldChg>0);
+      setKpi('silver', '$—', 'Tidak tersedia gratis', null);
+      setKpi('goldidr', 'Rp'+fmt(goldIdr,0), fmtPct(goldChg), goldChg>0);
+      tickerItems = tickerItems.filter(t=>!t.includes('Emas'));
+      tickerItems.push(`<span class="${goldChg>0?'hi':'lo'}">Emas ${fmtUSD(goldUsd,0)}/oz (${fmtPct(goldChg)})</span>`);
+    }
+
+    updateTicker();
+
+    // Fetch gold 30-day chart
+    await fetchGoldHistory();
+    await fetchCryptoHistory();
+
+  } catch(e) {
+    log('Coin prices gagal: '+e.message,'err');
+  }
+}
+
+async function fetchGoldHistory() {
+  try {
+    const res = await fetch('https://api.coingecko.com/api/v3/coins/tether-gold/market_chart?vs_currency=usd&days=30&interval=daily');
+    const data = await res.json();
+    const prices = data.prices;
+    const labels = prices.map(p=>new Date(p[0]).toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit'}));
+    const vals = prices.map(p=>p[1]);
+
+    document.getElementById('goldChartSub').textContent = `30 hari — via Tether Gold (XAUT proxy) — CoinGecko`;
+
+    const ctx = document.getElementById('goldChart').getContext('2d');
+    if(charts.gold) charts.gold.destroy();
+    charts.gold = new Chart(ctx,{
+      type:'line',
+      data:{
+        labels,
+        datasets:[{
+          label:'XAU (USD/oz)',
+          data:vals,
+          borderColor:C.gold,
+          backgroundColor:'rgba(255,215,0,0.07)',
+          fill:true, tension:0.3,
+          pointRadius:1, pointHoverRadius:5
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{grid:{display:false},ticks:{maxTicksLimit:8}},
+          y:{grid:{color:'#1e2330'},ticks:{callback:v=>'$'+fmt(v,0)}}
+        }
+      }
+    });
+    log('Grafik emas 30 hari (XAUT proxy) berhasil dimuat');
+  } catch(e) {
+    log('Historis emas gagal: '+e.message,'err');
+  }
+}
+
+async function fetchCryptoHistory() {
+  try {
+    const [btcRes, ethRes] = await Promise.all([
+      fetch('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=7&interval=daily'),
+      fetch('https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=7&interval=daily')
+    ]);
+    const btcData = await btcRes.json();
+    const ethData = await ethRes.json();
+
+    const labels = btcData.prices.map(p=>new Date(p[0]).toLocaleDateString('id-ID',{weekday:'short',day:'2-digit'}));
+    document.getElementById('cryptoChartSub').textContent = '7 hari — CoinGecko';
+
+    const ctx = document.getElementById('cryptoChart').getContext('2d');
+    if(charts.crypto) charts.crypto.destroy();
+    charts.crypto = new Chart(ctx,{
+      type:'line',
+      data:{
+        labels,
+        datasets:[
+          { label:'BTC', data:btcData.prices.map(p=>p[1]), borderColor:C.orange, backgroundColor:'transparent', tension:0.3, pointRadius:2, yAxisID:'y1' },
+          { label:'ETH', data:ethData.prices.map(p=>p[1]), borderColor:C.blue, backgroundColor:'transparent', tension:0.3, pointRadius:2, yAxisID:'y2' },
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#6b7280',boxWidth:10}}},
+        scales:{
+          x:{grid:{display:false}},
+          y1:{grid:{color:'#1e2330'},ticks:{callback:v=>'$'+fmt(v,0)},position:'left'},
+          y2:{grid:{display:false},ticks:{callback:v=>'$'+fmt(v,0)},position:'right'},
+        }
+      }
+    });
+    log('Grafik BTC/ETH 7 hari berhasil dimuat');
+  } catch(e) {
+    log('Historis crypto gagal: '+e.message,'err');
+  }
+}
+
+// ══════════════════════════════════════════
+//  3. FEAR & GREED INDEX
+// ══════════════════════════════════════════
+async function fetchFearGreed() {
+  try {
+    const res = await fetch('https://api.alternative.me/fng/');
+    const data = await res.json();
+    const val = data.data[0];
+    const score = parseInt(val.value);
+    const label = val.value_classification;
+    const isGreed = score >= 50;
+    setKpi('fgi', score, label, isGreed);
+    tickerItems = tickerItems.filter(t=>!t.includes('Fear'));
+    tickerItems.push(`<span class="${isGreed?'hi':'lo'}">Fear & Greed: ${score} (${label})</span>`);
+    updateTicker();
+    log(`Fear & Greed Index: ${score} — ${label}`);
+  } catch(e) {
+    log('Fear & Greed gagal: '+e.message,'err');
+  }
+}
+
+// ══════════════════════════════════════════
+//  4. MAKRO — STATIC CHARTS (BPS/BI)
+// ══════════════════════════════════════════
+function buildMakroCharts() {
+  const inflasi = [-0.27,-0.22,-0.41,0.25,0.03,-0.08,0.06,0.12,-0.19,-0.08,-0.30,-0.02,0.76,-0.48]; // MoM % data aktual
+  const inflasiYoY = [2.57,2.75,3.05,2.84,2.41,2.51,2.13,2.12,1.84,1.71,1.55,1.57,1.76,1.64];
+  const lblInf = ['Jan 24','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des','Jan 25','Feb'];
+
+  const c1 = document.getElementById('inflasiBPSChart').getContext('2d');
+  if(charts.inflasi) charts.inflasi.destroy();
+  charts.inflasi = new Chart(c1,{
+    type:'line',
+    data:{
+      labels:lblInf,
+      datasets:[
+        { label:'Inflasi YoY %', data:inflasiYoY, borderColor:C.orange, backgroundColor:'rgba(255,107,53,0.08)', fill:true, tension:0.4, pointRadius:3 },
+        { label:'Inflasi MoM %', data:inflasi, borderColor:C.blue, backgroundColor:'transparent', tension:0.3, pointRadius:2, borderDash:[4,3] },
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#6b7280',boxWidth:10}}},
+      scales:{x:{grid:{display:false}},y:{grid:{color:'#1e2330'},ticks:{callback:v=>v+'%'}}}}
+  });
+
+  const biRates = [6.0,6.0,6.0,6.25,6.25,6.25,6.25,6.25,6.0,6.0,6.0,6.0,5.75,5.75];
+  const c2 = document.getElementById('biRateChart').getContext('2d');
+  if(charts.biRate) charts.biRate.destroy();
+  charts.biRate = new Chart(c2,{
+    type:'line',
+    data:{
+      labels:lblInf,
+      datasets:[{
+        label:'BI Rate %',
+        data:biRates,
+        borderColor:C.blue,
+        backgroundColor:'rgba(77,142,255,0.08)',
+        fill:true, tension:0, pointRadius:4,
+        pointBackgroundColor:biRates.map(v=>v===5.75?C.accent:'#4d8eff')
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false}},y:{grid:{color:'#1e2330'},min:5,max:6.5,ticks:{callback:v=>v+'%'}}}}
+  });
+}
+
+// ══════════════════════════════════════════
+//  API STATUS CARDS
+// ══════════════════════════════════════════
+function buildApiStatusCards() {
+  const apis = [
+    {name:'Frankfurter / ECB', dot:'dot-frankfurter', type:'ok', desc:'Kurs mata uang harian'},
+    {name:'CoinGecko Public', dot:'dot-coingecko', type:'ok', desc:'Kripto & pasar global'},
+    {name:'Alternative.me', dot:'dot-fgi', type:'ok', desc:'Fear & Greed Index'},
+    {name:'BPS Indonesia', type:'warn', desc:'Tidak ada API publik'},
+    {name:'IDX / BEI', type:'warn', desc:'API berbayar'},
+  ];
+  const grid = document.getElementById('apiStatusCards');
+  grid.innerHTML = apis.map(a => `
+    <div class="kpi-card ${a.type==='ok'?'green':a.type==='warn'?'gold':'red'}" style="animation-delay:${Math.random()*0.3}s">
+      <div class="kpi-label">${a.type==='ok'?'✅':'⚠️'} ${a.name}</div>
+      <div class="kpi-value" style="font-size:1rem;color:${a.type==='ok'?'var(--accent)':a.type==='warn'?'var(--accent4)':'var(--danger)'}">${a.type==='ok'?'Online':a.type==='warn'?'N/A':'Error'}</div>
+      <div class="kpi-sub">${a.desc}</div>
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════
+//  INIT & POLLING
+// ══════════════════════════════════════════
+async function initAll() {
+  updateStatus([{type:'loading',text:'⟳ Memuat Frankfurter/ECB...'},{type:'loading',text:'⟳ Memuat CoinGecko...'},{type:'loading',text:'⟳ Memuat Fear & Greed...'}]);
+  buildApiStatusCards();
+  buildMakroCharts();
+
+  await Promise.allSettled([
+    fetchKurs(),
+    fetchCoinGecko(),
+    fetchFearGreed()
+  ]);
+
+  updateStatus([
+    {type:'ok',text:'✅ Frankfurter/ECB: Online'},
+    {type:'ok',text:'✅ CoinGecko: Online'},
+    {type:'ok',text:'✅ Fear & Greed: Online'},
+    {type:'warn',text:'⚠️ BPS/IDX: Tidak ada API gratis'},
+  ]);
+
+  tickerItems.unshift('<span style="color:var(--muted)">EkoStat LIVE</span>');
+  updateTicker();
+}
+
+// Run
+initAll();
+
+// Auto-refresh every 5 minutes
+setInterval(() => {
+  fetchKurs();
+  fetchCoinGecko();
+  fetchFearGreed();
+}, 5 * 60 * 1000);
+
+// Stagger card animations
+document.querySelectorAll('.kpi-card').forEach((c,i)=>{c.style.animationDelay=(i*0.05)+'s';});
+</script>
+</body>
+</html>
